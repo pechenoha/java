@@ -1,0 +1,44 @@
+name: VP - Generate CRD Java Model
+on:
+  workflow_dispatch:
+    inputs:
+      crdPath:
+        type: string
+        required: true
+        description: 'Path to CRD yaml source, can be either HTTP url or local file path.'
+
+env:
+  IMAGE_NAME: ghcr.io/kubernetes-client/java/crd-model-gen
+  IMAGE_TAG: v1.0.6
+  GEN_DIR: crd-gen
+
+permissions:
+  contents: read
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Run CRD Model Generation
+        run: |
+          echo "CRD path: ${{ github.event.inputs.crdPath }}"
+          mkdir -p ${GEN_DIR}
+          docker run \
+            --rm \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            -v "$(pwd)":"$(pwd)" \
+            --network host \
+            ${IMAGE_NAME}:${IMAGE_TAG} \
+            /generate.sh \
+            -u ${{ github.event.inputs.crdPath }} \
+            ${CRD_SRC_ARGS} \
+            -p "com.conductor.graphql.schema.registry.service.k8s" \
+            -o "$(pwd)/${GEN_DIR}"
+          ls -lh ${GEN_DIR}
+      - uses: actions/upload-artifact@v3
+        with:
+          name: generated-java-crd-model
+          path: |
+            ${{ env.GEN_DIR }}
